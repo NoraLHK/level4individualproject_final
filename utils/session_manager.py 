@@ -1,0 +1,275 @@
+"""
+Session management utilities for CBT Chatbot Research System
+Handles session state, data persistence, and user progress tracking
+"""
+
+import json
+import os
+from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, asdict
+import streamlit as st
+
+@dataclass
+class SessionMetrics:
+    """Session performance metrics for research analysis"""
+    session_id: str
+    personality: str
+    condition: str
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    total_responses: int = 0
+    avg_response_length: float = 0.0
+    completion_rate: float = 0.0
+    engagement_score: float = 0.0
+    session_duration: float = 0.0
+
+@dataclass
+class UserResponse:
+    """Individual user response data"""
+    question_id: str
+    question_text: str
+    response_text: str
+    response_time: datetime
+    character_count: int
+    word_count: int
+    category: str
+
+class SessionManager:
+    """Manages user sessions and data collection for research purposes"""
+    
+    def __init__(self):
+        self.session_data_dir = "exports/session_data"
+        self.ensure_data_directory()
+        
+    def ensure_data_directory(self):
+        """Ensure session data directory exists"""
+        os.makedirs(self.session_data_dir, exist_ok=True)
+        
+    def create_session(self, personality: str, condition: str) -> str:
+        """Create a new session and return session ID"""
+        session_id = f"{personality}_{condition}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        session_metrics = SessionMetrics(
+            session_id=session_id,
+            personality=personality,
+            condition=condition,
+            start_time=datetime.now()
+        )
+        
+        # Store in streamlit session state
+        st.session_state.session_metrics = session_metrics
+        st.session_state.user_responses = []
+        
+        return session_id
+    
+    def add_response(self, question_id: str, question_text: str, 
+                    response_text: str, category: str):
+        """Add a user response to the current session"""
+        if 'user_responses' not in st.session_state:
+            st.session_state.user_responses = []
+            
+        response = UserResponse(
+            question_id=question_id,
+            question_text=question_text,
+            response_text=response_text,
+            response_time=datetime.now(),
+            character_count=len(response_text),
+            word_count=len(response_text.split()),
+            category=category
+        )
+        
+        st.session_state.user_responses.append(response)
+        self.update_session_metrics()
+    
+    def update_session_metrics(self):
+        """Update session metrics based on current responses"""
+        if 'session_metrics' not in st.session_state or 'user_responses' not in st.session_state:
+            return
+            
+        responses = st.session_state.user_responses
+        metrics = st.session_state.session_metrics
+        
+        if responses:
+            metrics.total_responses = len(responses)
+            metrics.avg_response_length = sum(r.character_count for r in responses) / len(responses)
+            
+            # Calculate engagement score based on response quality
+            total_words = sum(r.word_count for r in responses)
+            avg_words_per_response = total_words / len(responses) if responses else 0
+            metrics.engagement_score = min(100, (avg_words_per_response / 50) * 100)  # Normalize to 100
+            
+            # Update session duration
+            current_time = datetime.now()
+            metrics.session_duration = (current_time - metrics.start_time).total_seconds() / 60  # minutes
+    
+    def complete_session(self) -> Dict[str, Any]:
+        """Mark session as complete and return session data"""
+        if 'session_metrics' not in st.session_state:
+            return {}
+            
+        metrics = st.session_state.session_metrics
+        metrics.end_time = datetime.now()
+        
+        # Calculate final completion rate
+        expected_responses = self.get_expected_response_count(metrics.condition)
+        metrics.completion_rate = (metrics.total_responses / expected_responses) * 100 if expected_responses > 0 else 0
+        
+        # Save session data
+        session_data = self.compile_session_data()
+        self.save_session_data(session_data)
+        
+        return session_data
+    
+    def get_expected_response_count(self, condition: str) -> int:
+        """Get expected number of responses for a condition"""
+        expected_counts = {
+            'stress': 28,
+            'anxiety': 30,
+            'lowMood': 29
+        }
+        return expected_counts.get(condition, 0)
+    
+    def compile_session_data(self) -> Dict[str, Any]:
+        """Compile complete session data for export"""
+        if 'session_metrics' not in st.session_state or 'user_responses' not in st.session_state:
+            return {}
+            
+        metrics = st.session_state.session_metrics
+        responses = st.session_state.user_responses
+        
+        return {
+            'session_metadata': asdict(metrics),
+            'responses': [asdict(response) for response in responses],
+            'chat_history': st.session_state.get('chat_history', []),
+            'research_metrics': self.calculate_research_metrics(),
+            'export_timestamp': datetime.now().isoformat()
+        }
+    
+    def calculate_research_metrics(self) -> Dict[str, Any]:
+        """Calculate metrics relevant to the research question"""
+        if 'user_responses' not in st.session_state or not st.session_state.user_responses:
+            return {}
+            
+        responses = st.session_state.user_responses
+        
+        # Response quality metrics
+        word_counts = [r.word_count for r in responses]
+        char_counts = [r.character_count for r in responses]
+        
+        # Category-based analysis
+        category_metrics = {}
+        for response in responses:
+            if response.category not in category_metrics:
+                category_metrics[response.category] = {
+                    'response_count': 0,
+                    'total_words': 0,
+                    'avg_words': 0
+                }
+            category_metrics[response.category]['response_count'] += 1
+            category_metrics[response.category]['total_words'] += response.word_count
+        
+        # Calculate averages for each category
+        for category in category_metrics:
+            count = category_metrics[category]['response_count']
+            category_metrics[category]['avg_words'] = category_metrics[category]['total_words'] / count
+        
+        return {
+            'total_responses': len(responses),
+            'avg_words_per_response': sum(word_counts) / len(word_counts) if word_counts else 0,
+            'avg_chars_per_response': sum(char_counts) / len(char_counts) if char_counts else 0,
+            'min_response_length': min(word_counts) if word_counts else 0,
+            'max_response_length': max(word_counts) if word_counts else 0,
+            'category_breakdown': category_metrics,
+            'response_consistency': self.calculate_response_consistency(word_counts),
+            'therapeutic_depth_indicators': self.assess_therapeutic_depth()
+        }
+    
+    def calculate_response_consistency(self, word_counts: List[int]) -> float:
+        """Calculate consistency of response lengths (lower std dev = more consistent)"""
+        if len(word_counts) < 2:
+            return 0.0
+            
+        mean = sum(word_counts) / len(word_counts)
+        variance = sum((x - mean) ** 2 for x in word_counts) / len(word_counts)
+        std_dev = variance ** 0.5
+        
+        # Return consistency as percentage (100 = perfect consistency)
+        return max(0, 100 - (std_dev / mean * 100)) if mean > 0 else 0
+    
+    def assess_therapeutic_depth(self) -> Dict[str, Any]:
+        """Assess indicators of therapeutic engagement and depth"""
+        if 'user_responses' not in st.session_state:
+            return {}
+            
+        responses = st.session_state.user_responses
+        
+        # Look for depth indicators in responses
+        depth_keywords = [
+            'feel', 'felt', 'emotion', 'thought', 'think', 'believe', 'realize', 
+            'understand', 'insight', 'pattern', 'trigger', 'cope', 'manage',
+            'because', 'since', 'therefore', 'however', 'although', 'despite'
+        ]
+        
+        self_awareness_keywords = [
+            'i notice', 'i realize', 'i understand', 'i recognize', 'i see',
+            'pattern', 'connection', 'relationship', 'impact', 'effect'
+        ]
+        
+        depth_score = 0
+        self_awareness_score = 0
+        
+        for response in responses:
+            text = response.response_text.lower()
+            depth_score += sum(1 for keyword in depth_keywords if keyword in text)
+            self_awareness_score += sum(1 for keyword in self_awareness_keywords if keyword in text)
+        
+        return {
+            'depth_indicator_count': depth_score,
+            'self_awareness_indicator_count': self_awareness_score,
+            'avg_depth_per_response': depth_score / len(responses) if responses else 0,
+            'avg_self_awareness_per_response': self_awareness_score / len(responses) if responses else 0
+        }
+    
+    def save_session_data(self, session_data: Dict[str, Any]):
+        """Save session data to file for research analysis"""
+        if not session_data:
+            return
+            
+        filename = f"session_{session_data['session_metadata']['session_id']}.json"
+        filepath = os.path.join(self.session_data_dir, filename)
+        
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(session_data, f, indent=2, default=str)
+        except Exception as e:
+            st.error(f"Error saving session data: {e}")
+    
+    def get_session_summary(self) -> Dict[str, Any]:
+        """Get current session summary for display"""
+        if 'session_metrics' not in st.session_state:
+            return {}
+            
+        metrics = st.session_state.session_metrics
+        responses = st.session_state.get('user_responses', [])
+        
+        return {
+            'personality': metrics.personality,
+            'condition': metrics.condition,
+            'responses_completed': len(responses),
+            'session_duration_minutes': round(metrics.session_duration, 1),
+            'avg_response_length': round(metrics.avg_response_length, 1),
+            'engagement_score': round(metrics.engagement_score, 1)
+        }
+    
+    def clear_session_data(self):
+        """Clear current session data"""
+        session_keys = [
+            'session_metrics', 'user_responses', 'chat_history',
+            'current_condition', 'current_step', 'responses',
+            'session_complete', 'journal_generated'
+        ]
+        
+        for key in session_keys:
+            if key in st.session_state:
+                del st.session_state[key]

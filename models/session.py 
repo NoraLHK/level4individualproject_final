@@ -1,0 +1,442 @@
+"""
+Session data models for CBT Chatbot Research System
+Defines data structures for session management and research data collection
+"""
+
+from dataclasses import dataclass, field, asdict
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+from enum import Enum
+
+
+class PersonalityType(Enum):
+    """Enum for chatbot personality types"""
+    NEUTRAL = "neutral"
+    CONSCIENTIOUSNESS = "conscientiousness"
+    EXTRAVERSION = "extraversion"
+
+
+class ConditionType(Enum):
+    """Enum for CBT condition types"""
+    STRESS = "stress"
+    ANXIETY = "anxiety"
+    LOW_MOOD = "lowMood"
+
+
+class SessionStatus(Enum):
+    """Enum for session status"""
+    CREATED = "created"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
+
+
+@dataclass
+class ConversationMessage:
+    """Individual conversation message"""
+    type: str  # 'user' or 'bot'
+    message: str
+    timestamp: datetime
+    question_id: Optional[str] = None
+    category: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return {
+            'type': self.type,
+            'message': self.message,
+            'timestamp': self.timestamp.isoformat(),
+            'question_id': self.question_id,
+            'category': self.category,
+            'metadata': self.metadata
+        }
+
+
+@dataclass
+class UserResponseData:
+    """Detailed user response data for research analysis"""
+    question_id: str
+    question_text: str
+    response_text: str
+    response_time: datetime
+    character_count: int
+    word_count: int
+    sentence_count: int
+    category: str
+    quality_metrics: Dict[str, float] = field(default_factory=dict)
+    therapeutic_indicators: Dict[str, int] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return {
+            'question_id': self.question_id,
+            'question_text': self.question_text,
+            'response_text': self.response_text,
+            'response_time': self.response_time.isoformat(),
+            'character_count': self.character_count,
+            'word_count': self.word_count,
+            'sentence_count': self.sentence_count,
+            'category': self.category,
+            'quality_metrics': self.quality_metrics,
+            'therapeutic_indicators': self.therapeutic_indicators
+        }
+
+
+@dataclass
+class SessionMetrics:
+    """Session performance metrics for research analysis"""
+    session_id: str
+    participant_id: Optional[str] = None
+    personality_type: PersonalityType = PersonalityType.NEUTRAL
+    condition_type: Optional[ConditionType] = None
+    status: SessionStatus = SessionStatus.CREATED
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    total_responses: int = 0
+    avg_response_length: float = 0.0
+    avg_response_time: float = 0.0
+    completion_rate: float = 0.0
+    engagement_score: float = 0.0
+    therapeutic_depth_score: float = 0.0
+    session_duration_minutes: float = 0.0
+    
+    def calculate_duration(self) -> float:
+        """Calculate session duration in minutes"""
+        if self.start_time and self.end_time:
+            duration = (self.end_time - self.start_time).total_seconds() / 60
+            self.session_duration_minutes = duration
+            return duration
+        return 0.0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return {
+            'session_id': self.session_id,
+            'participant_id': self.participant_id,
+            'personality_type': self.personality_type.value,
+            'condition_type': self.condition_type.value if self.condition_type else None,
+            'status': self.status.value,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'total_responses': self.total_responses,
+            'avg_response_length': self.avg_response_length,
+            'avg_response_time': self.avg_response_time,
+            'completion_rate': self.completion_rate,
+            'engagement_score': self.engagement_score,
+            'therapeutic_depth_score': self.therapeutic_depth_score,
+            'session_duration_minutes': self.session_duration_minutes
+        }
+
+
+@dataclass
+class TherapeuticOutcomes:
+    """Therapeutic outcomes assessment"""
+    cognitive_restructuring_score: float = 0.0
+    emotional_processing_score: float = 0.0
+    behavioral_insight_score: float = 0.0
+    self_awareness_score: float = 0.0
+    coping_strategy_score: float = 0.0
+    overall_therapeutic_benefit: float = 0.0
+    
+    def calculate_overall_score(self) -> float:
+        """Calculate overall therapeutic benefit score"""
+        scores = [
+            self.cognitive_restructuring_score,
+            self.emotional_processing_score,
+            self.behavioral_insight_score,
+            self.self_awareness_score,
+            self.coping_strategy_score
+        ]
+        self.overall_therapeutic_benefit = sum(scores) / len(scores)
+        return self.overall_therapeutic_benefit
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return asdict(self)
+
+
+@dataclass
+class PersonalityAnalysis:
+    """Analysis of personality influence on responses"""
+    personality_type: PersonalityType
+    response_style_score: float = 0.0
+    engagement_pattern_score: float = 0.0
+    communication_effectiveness: float = 0.0
+    user_preference_indicators: Dict[str, float] = field(default_factory=dict)
+    linguistic_markers: Dict[str, int] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return {
+            'personality_type': self.personality_type.value,
+            'response_style_score': self.response_style_score,
+            'engagement_pattern_score': self.engagement_pattern_score,
+            'communication_effectiveness': self.communication_effectiveness,
+            'user_preference_indicators': self.user_preference_indicators,
+            'linguistic_markers': self.linguistic_markers
+        }
+
+
+@dataclass
+class ResearchDataPoint:
+    """Complete research data point for analysis"""
+    session_metrics: SessionMetrics
+    conversation_history: List[ConversationMessage] = field(default_factory=list)
+    user_responses: List[UserResponseData] = field(default_factory=list)
+    therapeutic_outcomes: Optional[TherapeuticOutcomes] = None
+    personality_analysis: Optional[PersonalityAnalysis] = None
+    research_notes: Dict[str, Any] = field(default_factory=dict)
+    export_timestamp: Optional[datetime] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for research export"""
+        return {
+            'session_metrics': self.session_metrics.to_dict(),
+            'conversation_history': [msg.to_dict() for msg in self.conversation_history],
+            'user_responses': [resp.to_dict() for resp in self.user_responses],
+            'therapeutic_outcomes': self.therapeutic_outcomes.to_dict() if self.therapeutic_outcomes else None,
+            'personality_analysis': self.personality_analysis.to_dict() if self.personality_analysis else None,
+            'research_notes': self.research_notes,
+            'export_timestamp': self.export_timestamp.isoformat() if self.export_timestamp else None
+        }
+
+
+class SessionData:
+    """Main session data container for managing research sessions"""
+    
+    def __init__(self, session_id: str, personality: str, condition: Optional[str] = None):
+        self.session_id = session_id
+        self.personality_type = PersonalityType(personality)
+        self.condition_type = ConditionType(condition) if condition else None
+        
+        # Initialize session metrics
+        self.metrics = SessionMetrics(
+            session_id=session_id,
+            personality_type=self.personality_type,
+            condition_type=self.condition_type,
+            start_time=datetime.now()
+        )
+        
+        # Initialize data containers
+        self.conversation_history: List[ConversationMessage] = []
+        self.user_responses: List[UserResponseData] = []
+        self.therapeutic_outcomes: Optional[TherapeuticOutcomes] = None
+        self.personality_analysis: Optional[PersonalityAnalysis] = None
+        self.research_notes: Dict[str, Any] = {}
+    
+    def add_message(self, message_type: str, content: str, 
+                   question_id: Optional[str] = None, 
+                   category: Optional[str] = None,
+                   metadata: Optional[Dict[str, Any]] = None) -> ConversationMessage:
+        """Add a message to the conversation history"""
+        message = ConversationMessage(
+            type=message_type,
+            message=content,
+            timestamp=datetime.now(),
+            question_id=question_id,
+            category=category,
+            metadata=metadata or {}
+        )
+        self.conversation_history.append(message)
+        return message
+    
+    def add_user_response(self, question_id: str, question_text: str, 
+                         response_text: str, category: str,
+                         quality_metrics: Optional[Dict[str, float]] = None,
+                         therapeutic_indicators: Optional[Dict[str, int]] = None) -> UserResponseData:
+        """Add a user response with analysis data"""
+        response_data = UserResponseData(
+            question_id=question_id,
+            question_text=question_text,
+            response_text=response_text,
+            response_time=datetime.now(),
+            character_count=len(response_text),
+            word_count=len(response_text.split()),
+            sentence_count=len([s for s in response_text.split('.') if s.strip()]),
+            category=category,
+            quality_metrics=quality_metrics or {},
+            therapeutic_indicators=therapeutic_indicators or {}
+        )
+        self.user_responses.append(response_data)
+        self.update_metrics()
+        return response_data
+    
+    def update_metrics(self):
+        """Update session metrics based on current data"""
+        if not self.user_responses:
+            return
+        
+        # Update basic metrics
+        self.metrics.total_responses = len(self.user_responses)
+        self.metrics.avg_response_length = sum(r.word_count for r in self.user_responses) / len(self.user_responses)
+        
+        # Calculate engagement score based on response quality
+        if self.user_responses and all(r.quality_metrics for r in self.user_responses):
+            quality_scores = [r.quality_metrics.get('overall_quality_score', 0) for r in self.user_responses]
+            self.metrics.engagement_score = sum(quality_scores) / len(quality_scores)
+        
+        # Calculate therapeutic depth score
+        therapeutic_scores = []
+        for response in self.user_responses:
+            if response.quality_metrics:
+                depth_score = (
+                    response.quality_metrics.get('emotional_depth', 0) +
+                    response.quality_metrics.get('insight_level', 0)
+                ) / 2
+                therapeutic_scores.append(depth_score)
+        
+        if therapeutic_scores:
+            self.metrics.therapeutic_depth_score = sum(therapeutic_scores) / len(therapeutic_scores)
+        
+        # Update session duration
+        if self.metrics.start_time:
+            duration = (datetime.now() - self.metrics.start_time).total_seconds() / 60
+            self.metrics.session_duration_minutes = duration
+    
+    def complete_session(self, expected_responses: int) -> ResearchDataPoint:
+        """Mark session as complete and generate research data point"""
+        self.metrics.end_time = datetime.now()
+        self.metrics.status = SessionStatus.COMPLETED
+        self.metrics.completion_rate = (self.metrics.total_responses / expected_responses) * 100 if expected_responses > 0 else 0
+        self.metrics.calculate_duration()
+        
+        # Generate therapeutic outcomes assessment
+        self.therapeutic_outcomes = self._assess_therapeutic_outcomes()
+        
+        # Generate personality analysis
+        self.personality_analysis = self._analyze_personality_influence()
+        
+        # Create research data point
+        research_data = ResearchDataPoint(
+            session_metrics=self.metrics,
+            conversation_history=self.conversation_history.copy(),
+            user_responses=self.user_responses.copy(),
+            therapeutic_outcomes=self.therapeutic_outcomes,
+            personality_analysis=self.personality_analysis,
+            research_notes=self.research_notes.copy(),
+            export_timestamp=datetime.now()
+        )
+        
+        return research_data
+    
+    def _assess_therapeutic_outcomes(self) -> TherapeuticOutcomes:
+        """Assess therapeutic outcomes based on response data"""
+        outcomes = TherapeuticOutcomes()
+        
+        if not self.user_responses:
+            return outcomes
+        
+        # Analyze response content for therapeutic indicators
+        all_responses = ' '.join([r.response_text.lower() for r in self.user_responses])
+        
+        # Cognitive restructuring indicators
+        cognitive_keywords = ['balanced', 'realistic', 'alternative', 'different way', 'perspective']
+        outcomes.cognitive_restructuring_score = sum(1 for keyword in cognitive_keywords if keyword in all_responses) * 20
+        
+        # Emotional processing indicators
+        emotion_keywords = ['feel', 'emotion', 'mood', 'feelings', 'emotional']
+        outcomes.emotional_processing_score = sum(1 for keyword in emotion_keywords if keyword in all_responses) * 10
+        
+        # Behavioral insight indicators
+        behavior_keywords = ['behavior', 'action', 'react', 'response', 'pattern']
+        outcomes.behavioral_insight_score = sum(1 for keyword in behavior_keywords if keyword in all_responses) * 15
+        
+        # Self-awareness indicators
+        awareness_keywords = ['realize', 'understand', 'notice', 'recognize', 'insight']
+        outcomes.self_awareness_score = sum(1 for keyword in awareness_keywords if keyword in all_responses) * 15
+        
+        # Coping strategy indicators
+        coping_keywords = ['cope', 'manage', 'strategy', 'plan', 'handle']
+        outcomes.coping_strategy_score = sum(1 for keyword in coping_keywords if keyword in all_responses) * 20
+        
+        # Normalize scores to 0-100 range
+        for attr in ['cognitive_restructuring_score', 'emotional_processing_score', 
+                    'behavioral_insight_score', 'self_awareness_score', 'coping_strategy_score']:
+            setattr(outcomes, attr, min(100, getattr(outcomes, attr)))
+        
+        outcomes.calculate_overall_score()
+        return outcomes
+    
+    def _analyze_personality_influence(self) -> PersonalityAnalysis:
+        """Analyze how personality influenced the session"""
+        analysis = PersonalityAnalysis(personality_type=self.personality_type)
+        
+        if not self.user_responses:
+            return analysis
+        
+        all_responses = ' '.join([r.response_text.lower() for r in self.user_responses])
+        
+        # Personality-specific analysis
+        if self.personality_type == PersonalityType.EXTRAVERSION:
+            # Look for social and enthusiasm markers
+            social_words = ['people', 'friends', 'together', 'share', 'talk']
+            enthusiasm_words = ['excited', 'great', 'amazing', 'love', 'awesome']
+            
+            analysis.linguistic_markers = {
+                'social_references': sum(1 for word in social_words if word in all_responses),
+                'enthusiasm_markers': sum(1 for word in enthusiasm_words if word in all_responses)
+            }
+            
+            # Calculate engagement based on response length (extraverts should be more verbose)
+            avg_length = self.metrics.avg_response_length
+            analysis.engagement_pattern_score = min(100, (avg_length / 50) * 100)  # Normalize to 100
+        
+        elif self.personality_type == PersonalityType.CONSCIENTIOUSNESS:
+            # Look for structure and detail markers
+            structure_words = ['plan', 'organize', 'systematic', 'goal', 'achieve']
+            detail_words = ['specifically', 'detailed', 'thorough', 'comprehensive']
+            
+            analysis.linguistic_markers = {
+                'structure_references': sum(1 for word in structure_words if word in all_responses),
+                'detail_indicators': sum(1 for word in detail_words if word in all_responses)
+            }
+            
+            # Calculate engagement based on response quality and detail
+            quality_scores = [r.quality_metrics.get('overall_quality_score', 0) for r in self.user_responses if r.quality_metrics]
+            analysis.engagement_pattern_score = sum(quality_scores) / len(quality_scores) if quality_scores else 0
+        
+        else:  # Neutral
+            # Balanced engagement pattern
+            analysis.engagement_pattern_score = self.metrics.engagement_score
+        
+        # Calculate overall communication effectiveness
+        analysis.communication_effectiveness = (
+            analysis.response_style_score + 
+            analysis.engagement_pattern_score
+        ) / 2
+        
+        return analysis
+    
+    def get_summary(self) -> Dict[str, Any]:
+        """Get session summary for display"""
+        return {
+            'session_id': self.session_id,
+            'personality': self.personality_type.value,
+            'condition': self.condition_type.value if self.condition_type else None,
+            'status': self.metrics.status.value,
+            'duration_minutes': round(self.metrics.session_duration_minutes, 1),
+            'total_responses': self.metrics.total_responses,
+            'avg_response_length': round(self.metrics.avg_response_length, 1),
+            'engagement_score': round(self.metrics.engagement_score, 1),
+            'completion_rate': round(self.metrics.completion_rate, 1)
+        }
+    
+    def export_for_research(self) -> Dict[str, Any]:
+        """Export session data for research analysis"""
+        if self.metrics.status != SessionStatus.COMPLETED:
+            # Complete session if not already done
+            expected_responses = 30  # Default, should be passed from condition
+            research_data = self.complete_session(expected_responses)
+        else:
+            research_data = ResearchDataPoint(
+                session_metrics=self.metrics,
+                conversation_history=self.conversation_history,
+                user_responses=self.user_responses,
+                therapeutic_outcomes=self.therapeutic_outcomes,
+                personality_analysis=self.personality_analysis,
+                research_notes=self.research_notes,
+                export_timestamp=datetime.now()
+            )
+        
+        return research_data.to_dict()
